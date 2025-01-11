@@ -5,29 +5,18 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 import os
-import numpy as np
 
-# URL to the raw Logistic Regression model
-url = "https://raw.githubusercontent.com/Arnob83/TL/main/Logistic_Regression_model.pkl"
+# URLs for the model file in your GitHub repository
+model_url = "https://raw.githubusercontent.com/Arnob83/TL/main/Logistic_Regression_model.pkl"
 
-# Download the Logistic Regression model file and save it locally
-response = requests.get(url)
-if response.status_code == 200:
-    with open("Logistic_Regression_model.pkl", "wb") as file:
-        file.write(response.content)
-else:
-    raise Exception("Failed to download the model. Please check the URL.")
-
-# Validate file size
-if os.path.getsize("Logistic_Regression_model.pkl") == 0:
-    raise EOFError("The downloaded file is empty. Please verify the source.")
+# Download the model file and save it locally
+model_response = requests.get(model_url)
+with open("Logistic_Regression_model.pkl", "wb") as file:
+    file.write(model_response.content)
 
 # Load the trained model
-try:
-    with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
-        classifier = pickle.load(pickle_in)
-except EOFError:
-    raise EOFError("Failed to load the model. The file may be incomplete or corrupted.")
+with open("Logistic_Regression_model.pkl", "rb") as model_file:
+    classifier = pickle.load(model_file)
 
 # Initialize SQLite database
 def init_db():
@@ -90,33 +79,26 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
 
     # Model prediction (0 = Rejected, 1 = Approved)
     prediction = classifier.predict(input_data_filtered)
+    probabilities = classifier.predict_proba(input_data_filtered)  # Get prediction probabilities
+    
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
-    return pred_label, input_data_filtered
+    return pred_label, input_data, probabilities, input_data_filtered
 
-def explain_prediction_with_coefficients(input_data, prediction_label):
-    # Get feature names and coefficients
-    feature_names = classifier.feature_names_in_
-    coefficients = classifier.coef_[0]  # Coefficients for the logistic regression model
-
-    # Multiply coefficients by input data to get feature contributions
-    contributions = input_data.iloc[0].values * coefficients
-
-    # Sort contributions by importance (absolute value)
-    sorted_indices = np.argsort(np.abs(contributions))[::-1]
-    sorted_features = [feature_names[i] for i in sorted_indices]
-    sorted_contributions = [contributions[i] for i in sorted_indices]
-
-    # Create a bar plot
+# Function to create feature importance plot
+def plot_feature_importance(features, coefficients):
+    # Create a horizontal bar chart for feature importance
     plt.figure(figsize=(8, 5))
-    colors = ['green' if val > 0 else 'red' for val in sorted_contributions]
-    plt.barh(sorted_features, sorted_contributions, color=colors)
-    plt.xlabel("Feature Contribution to Prediction")
+    colors = ["green" if coef > 0 else "red" for coef in coefficients]
+    bars = plt.barh(features, coefficients, color=colors)
+    for bar, coef in zip(bars, coefficients):
+        plt.text(bar.get_width(), bar.get_y() + bar.get_height() / 2, f"{coef:.4f}", va='center')
+    plt.xlabel("Coefficient (Impact on Prediction)")
     plt.ylabel("Features")
-    plt.title(f"Feature Contributions for {prediction_label}")
+    plt.title("Feature Importance")
     plt.tight_layout()
+    return plt
 
-    return plt.gcf()
-
+# Main Streamlit app
 def main():
     # Initialize database
     init_db()
@@ -165,7 +147,7 @@ def main():
 
     # Prediction and database saving
     if st.button("Predict"):
-        result, input_data = prediction(
+        result, input_data, probabilities, input_data_filtered = prediction(
             Credit_History,
             Education_1,
             ApplicantIncome,
@@ -180,14 +162,42 @@ def main():
 
         # Display the prediction
         if result == "Approved":
-            st.success(f'Your loan is {result}', icon="✅")
+            st.success(f"Your loan is Approved! (Probability: {probabilities[0][1]:.2f})", icon="✅")
         else:
-            st.error(f'Your loan is {result}', icon="❌")
+            st.error(f"Your loan is Rejected! (Probability: {probabilities[0][0]:.2f})", icon="❌")
 
-        # Explain the prediction with coefficients
-        st.header("Explanation of Prediction")
-        coeff_fig = explain_prediction_with_coefficients(input_data, prediction_label=result)
-        st.pyplot(coeff_fig)
+        # Show prediction values
+        st.subheader("Prediction Value")
+        st.write(input_data)
+
+        # Calculate feature contributions
+        coefficients = classifier.coef_[0]
+        feature_contributions = coefficients * input_data_filtered.iloc[0]
+
+        # Create a DataFrame for visualization
+        feature_df = pd.DataFrame({
+            'Feature': input_data_filtered.columns,
+            'Contribution': feature_contributions
+        }).sort_values(by="Contribution", ascending=False)
+
+        # Plot feature contributions
+        st.subheader("Feature Contributions")
+        fig, ax = plt.subplots(figsize=(8, 5))
+        colors = ['green' if val >= 0 else 'red' for val in feature_df['Contribution']]
+        ax.barh(feature_df['Feature'], feature_df['Contribution'], color=colors)
+        ax.set_xlabel("Contribution to Prediction")
+        ax.set_ylabel("Features")
+        ax.set_title("Feature Contributions to Prediction")
+        st.pyplot(fig)
+
+        # Add explanations for the features
+        st.subheader("Feature Contribution Explanations")
+        for index, row in feature_df.iterrows():
+            if row['Contribution'] >= 0:
+                explanation = f"The feature '{row['Feature']}' positively influenced the loan approval."
+            else:
+                explanation = f"The feature '{row['Feature']}' negatively influenced the loan approval."
+            st.write(f"- {explanation}")
 
     # Download database button
     if st.button("Download Database"):
