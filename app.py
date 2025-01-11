@@ -98,8 +98,9 @@ def show_feature_importance(input_data_filtered, classifier):
         'Contribution': feature_contributions
     }).sort_values(by="Contribution", ascending=False)
 
-    # Add interpretability by calculating the absolute contributions
-    feature_df['Absolute_Contribution'] = feature_df['Contribution'].abs()
+    # Normalize the contributions to make smaller ones visible
+    max_abs_contribution = feature_df['Contribution'].abs().max()
+    feature_df['Normalized_Contribution'] = feature_df['Contribution'] / max_abs_contribution
 
     # Highlight positive and negative contributions
     feature_df['Impact'] = feature_df['Contribution'].apply(
@@ -110,8 +111,8 @@ def show_feature_importance(input_data_filtered, classifier):
     st.subheader("Feature Contributions")
     fig, ax = plt.subplots(figsize=(8, 6))
     colors = feature_df['Impact'].map({'Positive': 'green', 'Negative': 'red'})
-    ax.barh(feature_df['Feature'], feature_df['Absolute_Contribution'], color=colors)
-    ax.set_xlabel("Contribution Magnitude")
+    ax.barh(feature_df['Feature'], feature_df['Normalized_Contribution'], color=colors)
+    ax.set_xlabel("Normalized Contribution Magnitude")
     ax.set_ylabel("Features")
     ax.set_title("Feature Contributions to Loan Decision")
     plt.gca().invert_yaxis()  # Invert the y-axis to show the highest contributions at the top
@@ -124,7 +125,7 @@ def show_feature_importance(input_data_filtered, classifier):
             explanation = f"The feature '{row['Feature']}' positively contributed to loan approval."
         else:
             explanation = f"The feature '{row['Feature']}' negatively impacted the loan approval."
-        st.write(f"- {explanation} (Magnitude: {row['Absolute_Contribution']:.4f})")
+        st.write(f"- {explanation} (Normalized Magnitude: {row['Normalized_Contribution']:.4f})")
 
 # Main Streamlit app
 def main():
