@@ -63,9 +63,9 @@ def save_to_database(gender, married, dependents, self_employed, loan_amount, pr
 
 # Prediction function
 @st.cache_data
-def prediction(gam_model, input_data):
-    probabilities = gam_model.predict_proba(input_data)
-    prediction = gam_model.predict(input_data)
+def prediction(_gam_model, input_data):
+    probabilities = _gam_model.predict_proba(input_data)
+    prediction = _gam_model.predict(input_data)
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, probabilities
 
