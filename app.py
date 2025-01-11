@@ -8,15 +8,15 @@ import requests
 import os
 
 # URL to the raw xgb_model_new.pkl file in your GitHub repository
-url = "https://raw.githubusercontent.com/Arnob83/D-A/main/xgb_model_new.pkl"
+url = "https://raw.githubusercontent.com/Arnob83/TL/main/Logistic_Regression_model.pkl"
 
 # Download the xgb_model_new.pkl file and save it locally
 response = requests.get(url)
-with open("xgb_model_new.pkl", "wb") as file:
+with open("Logistic_Regression_model.pkl", "wb") as file:
     file.write(response.content)
 
 # Load the trained model
-with open("xgb_model_new.pkl", "rb") as pickle_in:
+with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
     classifier = pickle.load(pickle_in)
 
 # Initialize SQLite database
