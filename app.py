@@ -99,8 +99,8 @@ def explain_prediction(input_data, final_result):
     # Calculate SHAP values for the input data
     shap_values = explainer.shap_values(input_data)
 
-    # Extract SHAP values for the positive class (binary classification)
-    shap_values_for_input = shap_values[0][0]  # First class and first sample
+    # Select SHAP values for the positive class (index 1)
+    shap_values_for_input = shap_values[1][0]  # SHAP values for the positive class and first sample
 
     # Ensure feature names match SHAP values
     feature_names = input_data.columns.tolist()
@@ -129,7 +129,6 @@ def explain_prediction(input_data, final_result):
     plt.title("Feature Contributions to Prediction")
     plt.tight_layout()
     return explanation_text, plt
-
 
 
 
