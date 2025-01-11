@@ -85,7 +85,7 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
 
 # Explanation function
 def explain_prediction(input_data, final_result):
-    explainer = shap.TreeExplainer(classifier)
+    explainer = shap.Explainer(classifier)
     shap_values = explainer.shap_values(input_data)
     shap_values_for_input = shap_values[0]
 
