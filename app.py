@@ -1,17 +1,18 @@
 import sqlite3
 import pickle
 import streamlit as st
-import shap
+import lime
+import lime.lime_tabular
 import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 import os
 import numpy as np
 
-# URL to the raw xgb_model_new.pkl file in your GitHub repository
+# URL to the raw Logistic Regression model
 url = "https://raw.githubusercontent.com/Arnob83/TL/main/Logistic_Regression_model.pkl"
 
-# Download the xgb_model_new.pkl file and save it locally
+# Download the Logistic Regression model file and save it locally
 response = requests.get(url)
 with open("Logistic_Regression_model.pkl", "wb") as file:
     file.write(response.content)
@@ -84,68 +85,32 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
-def explain_prediction(input_data, final_result):
-    # Extract features used during model training
-    if hasattr(classifier, "feature_names_in_"):
-        trained_features = classifier.feature_names_in_
-    else:
-        raise ValueError("The model does not provide 'feature_names_in_'. Ensure it was trained with scikit-learn.")
+# Explanation function using LIME
+def explain_prediction_with_lime(input_data):
+    # Get the training data and feature names
+    feature_names = classifier.feature_names_in_
 
-    # Align input data with trained features
-    input_data = input_data[trained_features]
+    # Convert input_data to numpy array
+    input_array = input_data.values
 
-    # Initialize SHAP KernelExplainer
-    explainer = shap.KernelExplainer(classifier.predict_proba, input_data)
-
-    # Calculate SHAP values for the input data
-    shap_values = explainer.shap_values(input_data)
-
-    # Check SHAP values structure and handle single output case
-    if isinstance(shap_values, list) and len(shap_values) > 1:
-        # Select SHAP values for the positive class (index 1 for binary classification)
-        shap_values_for_input = shap_values[1][0]  # SHAP values for the first sample, positive class
-    elif isinstance(shap_values, list) and len(shap_values) == 1:
-        # Only one set of SHAP values is present, use shap_values[0]
-        shap_values_for_input = shap_values[0][0]
-    else:
-        raise ValueError("Unexpected SHAP values format. Check the SHAP explainer output.")
-
-    # Ensure feature names match SHAP values
-    feature_names = input_data.columns.tolist()
-    if len(feature_names) != len(shap_values_for_input):
-        raise ValueError(f"Number of feature names ({len(feature_names)}) and SHAP values ({len(shap_values_for_input)}) do not match.")
-
-    explanation_text = f"**Why your loan is {final_result}:**\n\n"
-    for feature, shap_value in zip(feature_names, shap_values_for_input):
-        explanation_text += (
-            f"- **{feature}**: {'Positive' if shap_value > 0 else 'Negative'} contribution with a SHAP value of {shap_value:.2f}\n"
-        )
-
-    if final_result == 'Rejected':
-        explanation_text += "\nThe loan was rejected because the negative contributions outweighed the positive ones."
-    else:
-        explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
-
-    # Plot the SHAP values as a bar chart
-    plt.figure(figsize=(8, 5))
-    plt.barh(
-        feature_names,
-        shap_values_for_input,
-        color=["green" if val > 0 else "red" for val in shap_values_for_input],
+    # Initialize LIME explainer
+    explainer = lime.lime_tabular.LimeTabularExplainer(
+        training_data=input_data.values,  # Use the input data as a proxy for the training data
+        feature_names=feature_names,
+        class_names=['Rejected', 'Approved'],
+        mode='classification'
     )
-    plt.xlabel("SHAP Value (Impact on Prediction)")
-    plt.ylabel("Features")
-    plt.title("Feature Contributions to Prediction")
+
+    # Generate explanation for the prediction
+    explanation = explainer.explain_instance(
+        data_row=input_array[0],  # Use the first row of the input data
+        predict_fn=classifier.predict_proba
+    )
+
+    # Plot the explanation
+    fig = explanation.as_pyplot_figure()
     plt.tight_layout()
-    return explanation_text, plt
-
-
-
-
-
-
-
-
+    return fig
 
 # Main Streamlit app
 def main():
@@ -215,11 +180,10 @@ def main():
         else:
             st.error(f'Your loan is {result}', icon="❌")
 
-        # Explain the prediction
+        # Explain the prediction with LIME
         st.header("Explanation of Prediction")
-        explanation_text, bar_chart = explain_prediction(input_data, final_result=result)
-        st.write(explanation_text)
-        st.pyplot(bar_chart)
+        lime_fig = explain_prediction_with_lime(input_data)
+        st.pyplot(lime_fig)
 
     # Download database button
     if st.button("Download Database"):
