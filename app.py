@@ -85,21 +85,30 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
-# Explanation function using LIME
 def explain_prediction_with_lime(input_data):
-    # Get the training data and feature names
+    # Provide a proxy dataset (representative data for perturbations)
+    # You need to load a representative training dataset or create one with sufficient variation
+    # Example proxy data:
+    proxy_data = pd.DataFrame({
+        "Credit_History": [1, 0, 1, 0],
+        "Education_1": [0, 1, 0, 1],
+        "ApplicantIncome": [3000, 4000, 5000, 2000],
+        "CoapplicantIncome": [0, 1500, 0, 1000],
+        "Loan_Amount_Term": [360, 180, 120, 240]
+    })
+
     feature_names = classifier.feature_names_in_
 
-    # Convert input_data to numpy array
-    input_array = input_data.values
-
-    # Initialize LIME explainer
+    # Initialize LIME explainer with proxy data
     explainer = lime.lime_tabular.LimeTabularExplainer(
-        training_data=input_data.values,  # Use the input data as a proxy for the training data
+        training_data=proxy_data.values,
         feature_names=feature_names,
         class_names=['Rejected', 'Approved'],
         mode='classification'
     )
+
+    # Convert input_data to numpy array
+    input_array = input_data.values
 
     # Generate explanation for the prediction
     explanation = explainer.explain_instance(
@@ -111,6 +120,7 @@ def explain_prediction_with_lime(input_data):
     fig = explanation.as_pyplot_figure()
     plt.tight_layout()
     return fig
+
 
 # Main Streamlit app
 def main():
