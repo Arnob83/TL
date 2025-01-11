@@ -83,13 +83,16 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
-# Explanation function
 def explain_prediction(input_data, final_result):
-    explainer = shap.Explainer(classifier)
+    # Use SHAP KernelExplainer for logistic regression
+    explainer = shap.KernelExplainer(classifier.predict_proba, input_data)
+
+    # Calculate SHAP values for the input data
     shap_values = explainer.shap_values(input_data)
-    shap_values_for_input = shap_values[0]
 
     feature_names = input_data.columns
+    shap_values_for_input = shap_values[1][0]  # Use the values for the "approved" class (index 1)
+
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
     for feature, shap_value in zip(feature_names, shap_values_for_input):
         explanation_text += (
@@ -107,6 +110,7 @@ def explain_prediction(input_data, final_result):
     plt.title("Feature Contributions to Prediction")
     plt.tight_layout()
     return explanation_text, plt
+
 
 # Main Streamlit app
 def main():
