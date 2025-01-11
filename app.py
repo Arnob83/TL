@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 import os
-from pygam import LogisticGAM, s
+import shap  # For SHAP explanations
 
 # URLs for the model file in your GitHub repository
 model_url = "https://raw.githubusercontent.com/Arnob83/TL/main/Logistic_Regression_model.pkl"
@@ -39,7 +39,8 @@ def init_db():
         loan_amount_term REAL,
         result TEXT
     )
-    """)
+    """
+    )
     conn.commit()
     conn.close()
 
@@ -63,62 +64,51 @@ def save_to_database(gender, married, dependents, self_employed, loan_amount, pr
 
 # Prediction function
 @st.cache_data
-def prediction(_gam_model, input_data):
-    probabilities = _gam_model.predict_proba(input_data)
-    prediction = _gam_model.predict(input_data)
-    pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
-    return pred_label, probabilities
+def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term):
+    # Map user inputs to numeric values (if necessary)
+    Education_1 = 0 if Education_1 == "Graduate" else 1
+    Credit_History = 0 if Credit_History == "Unclear Debts" else 1
 
-# Function to create and display the GAM feature importance graph
-def show_gam_feature_importance(gam_model, input_data, feature_names):
-    st.subheader("Feature Contributions")
-
-    # Partial dependence for each feature
-    contributions = []
-    for i in range(len(feature_names)):
-        partial_dependence = gam_model.partial_dependence(i, input_data)
-        contributions.append(partial_dependence[0])
-
-    # Create a DataFrame for visualization
-    feature_df = pd.DataFrame({
-        'Feature': feature_names,
-        'Contribution': contributions
-    }).sort_values(by="Contribution", ascending=False)
-
-    # Highlight positive and negative contributions
-    feature_df['Impact'] = feature_df['Contribution'].apply(
-        lambda x: 'Positive' if x >= 0 else 'Negative'
+    # Create input data (all user inputs)
+    input_data = pd.DataFrame(
+        [[Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term]],
+        columns=["Credit_History", "Education_1", "ApplicantIncome", "CoapplicantIncome", "Loan_Amount_Term"]
     )
 
-    # Plot feature contributions
-    fig, ax = plt.subplots(figsize=(8, 6))
-    colors = feature_df['Impact'].map({'Positive': 'green', 'Negative': 'red'})
-    ax.barh(feature_df['Feature'], feature_df['Contribution'], color=colors)
-    ax.set_xlabel("Contribution Magnitude")
-    ax.set_ylabel("Features")
-    ax.set_title("Feature Contributions to Loan Decision (GAM)")
-    plt.gca().invert_yaxis()
-    st.pyplot(fig)
+    # Filter to only include features used by the model
+    trained_features = classifier.feature_names_in_  # Features used in model training
+    input_data_filtered = input_data[trained_features]
 
-    # Add explanations for each feature
-    st.subheader("Feature Contribution Explanations")
-    for _, row in feature_df.iterrows():
-        if row['Impact'] == 'Positive':
-            explanation = f"The feature '{row['Feature']}' positively contributed to loan approval."
-        else:
-            explanation = f"The feature '{row['Feature']}' negatively impacted the loan approval."
-        st.write(f"- {explanation} (Contribution: {row['Contribution']:.4f})")
+    # Model prediction (0 = Rejected, 1 = Approved)
+    prediction = classifier.predict(input_data_filtered)
+    probabilities = classifier.predict_proba(input_data_filtered)  # Get prediction probabilities
+
+    pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
+    return pred_label, input_data, probabilities, input_data_filtered
+
+# Function to explain the prediction using SHAP
+def show_shap_explanation(input_data_filtered, classifier):
+    st.subheader("Explanation for the Prediction")
+    
+    # Initialize SHAP explainer
+    explainer = shap.LinearExplainer(classifier, input_data_filtered, feature_perturbation="interventional")
+    shap_values = explainer.shap_values(input_data_filtered)
+
+    # Visualize SHAP values using a bar plot
+    st.write("SHAP values show the impact of each feature on the model's prediction:")
+    shap.summary_plot(shap_values, input_data_filtered, plot_type="bar", show=False)
+    st.pyplot(plt.gcf())
+
+    # Provide detailed explanation
+    st.write("Detailed Breakdown:")
+    for feature, value, shap_value in zip(input_data_filtered.columns, input_data_filtered.iloc[0], shap_values[0]):
+        impact = "positive" if shap_value > 0 else "negative"
+        st.write(f"- **{feature}**: {value} (Impact: {impact}, SHAP Value: {shap_value:.4f})")
 
 # Main Streamlit app
 def main():
     # Initialize database
     init_db()
-
-    # Train a GAM model (for demonstration, use LogisticGAM with dummy smoothing terms)
-    gam_model = LogisticGAM(s(0) + s(1) + s(2) + s(3) + s(4))
-
-    # Feature names (replace these with the actual feature names from your dataset)
-    feature_names = ["Credit_History", "Education_1", "ApplicantIncome", "CoapplicantIncome", "Loan_Amount_Term"]
 
     # App layout
     st.markdown(
@@ -162,15 +152,15 @@ def main():
     CoapplicantIncome = st.number_input("Co-applicant's yearly Income", min_value=0.0)
     Loan_Amount_Term = st.number_input("Loan Term (in months)", min_value=0.0)
 
-    # Prepare input data for prediction
-    input_data = pd.DataFrame(
-        [[Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term]],
-        columns=feature_names
-    )
-
     # Prediction and database saving
     if st.button("Predict"):
-        result, probabilities = prediction(gam_model, input_data)
+        result, input_data, probabilities, input_data_filtered = prediction(
+            Credit_History,
+            Education_1,
+            ApplicantIncome,
+            CoapplicantIncome,
+            Loan_Amount_Term
+        )
 
         # Save data to database
         save_to_database(Gender, Married, Dependents, Self_Employed, Loan_Amount, Property_Area, 
@@ -184,11 +174,11 @@ def main():
             st.error(f"Your loan is Rejected! (Probability: {probabilities[0][0]:.2f})", icon="❌")
 
         # Show prediction values
-        st.subheader("Prediction Value")
+        st.subheader("Prediction Details")
         st.write(input_data)
 
-        # Show feature importance graph and explanations
-        show_gam_feature_importance(gam_model, input_data, feature_names)
+        # Explain the prediction using SHAP
+        show_shap_explanation(input_data_filtered, classifier)
 
     # Download database button
     if st.button("Download Database"):
