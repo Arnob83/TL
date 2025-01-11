@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 import os
+import numpy as np
 
 # URL to the raw xgb_model_new.pkl file in your GitHub repository
 url = "https://raw.githubusercontent.com/Arnob83/TL/main/Logistic_Regression_model.pkl"
