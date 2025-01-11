@@ -85,7 +85,7 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
-ddef explain_prediction_with_lime(input_data, prediction_label):
+def explain_prediction_with_lime(input_data, prediction_label):
     # Provide a proxy dataset (representative data for perturbations)
     proxy_data = pd.DataFrame({
         "Credit_History": [1, 0, 1, 0],
@@ -144,6 +144,7 @@ ddef explain_prediction_with_lime(input_data, prediction_label):
     plt.tight_layout()
 
     return plt.gcf()
+
 
 
 # Main Streamlit app
