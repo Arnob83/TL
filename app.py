@@ -85,10 +85,8 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
-def explain_prediction_with_lime(input_data):
+def explain_prediction_with_lime(input_data, prediction_label):
     # Provide a proxy dataset (representative data for perturbations)
-    # You need to load a representative training dataset or create one with sufficient variation
-    # Example proxy data:
     proxy_data = pd.DataFrame({
         "Credit_History": [1, 0, 1, 0],
         "Education_1": [0, 1, 0, 1],
@@ -110,14 +108,18 @@ def explain_prediction_with_lime(input_data):
     # Convert input_data to numpy array
     input_array = input_data.values
 
+    # Determine the index for the predicted class
+    class_index = 1 if prediction_label == "Approved" else 0
+
     # Generate explanation for the prediction
     explanation = explainer.explain_instance(
         data_row=input_array[0],  # Use the first row of the input data
-        predict_fn=classifier.predict_proba
+        predict_fn=classifier.predict_proba,
+        labels=[class_index]  # Specify the predicted class index
     )
 
-    # Plot the explanation
-    fig = explanation.as_pyplot_figure()
+    # Plot the explanation for the predicted class
+    fig = explanation.as_pyplot_figure(label=class_index)
     plt.tight_layout()
     return fig
 
