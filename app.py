@@ -113,9 +113,9 @@ def explain_prediction(input_data, final_result):
 
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
     for feature, shap_value in zip(feature_names, shap_values_for_input):
-        # Ensure SHAP values are scalars
-        if isinstance(shap_value, (list, np.ndarray)) and len(shap_value) == 1:
-            shap_value_scalar = shap_value[0]  # Extract the single value
+        # Aggregate SHAP values if they are arrays
+        if isinstance(shap_value, (list, np.ndarray)):
+            shap_value_scalar = np.sum(shap_value)  # Aggregate the SHAP values
         elif np.isscalar(shap_value):
             shap_value_scalar = shap_value
         else:
@@ -135,13 +135,14 @@ def explain_prediction(input_data, final_result):
     plt.barh(
         feature_names,
         shap_values_for_input,
-        color=["green" if val > 0 else "red" for val in shap_values_for_input],
+        color=["green" if np.sum(val) > 0 else "red" for val in shap_values_for_input],
     )
     plt.xlabel("SHAP Value (Impact on Prediction)")
     plt.ylabel("Features")
     plt.title("Feature Contributions to Prediction")
     plt.tight_layout()
     return explanation_text, plt
+
 
 
 
