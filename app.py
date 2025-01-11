@@ -82,7 +82,6 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     prediction = classifier.predict(input_data_filtered)
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
-
 def explain_prediction(input_data, final_result):
     # Use SHAP KernelExplainer for logistic regression
     explainer = shap.KernelExplainer(classifier.predict_proba, input_data)
@@ -90,11 +89,14 @@ def explain_prediction(input_data, final_result):
     # Calculate SHAP values for the input data
     shap_values = explainer.shap_values(input_data)
 
-    # For binary classification, shap_values is a list of two arrays (one for each class)
-    # Use the SHAP values for the positive class (index 0 in binary logistic regression)
-    shap_values_for_input = shap_values[0][0]  # First class and first sample
+    # Extract SHAP values for the positive class (index 1)
+    shap_values_for_input = shap_values[1][0]  # First sample for the positive class
 
-    feature_names = input_data.columns
+    # Ensure feature names match the SHAP values
+    feature_names = input_data.columns.tolist()
+    if len(feature_names) != len(shap_values_for_input):
+        raise ValueError("Number of feature names and SHAP values do not match.")
+
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
     for feature, shap_value in zip(feature_names, shap_values_for_input):
         explanation_text += (
@@ -105,13 +107,19 @@ def explain_prediction(input_data, final_result):
     else:
         explanation_text += "\nThe loan was approved because the positive contributions outweighed the negative ones."
 
+    # Plot the SHAP values as a bar chart
     plt.figure(figsize=(8, 5))
-    plt.barh(feature_names, shap_values_for_input, color=["green" if val > 0 else "red" for val in shap_values_for_input])
+    plt.barh(
+        feature_names,
+        shap_values_for_input,
+        color=["green" if val > 0 else "red" for val in shap_values_for_input],
+    )
     plt.xlabel("SHAP Value (Impact on Prediction)")
     plt.ylabel("Features")
     plt.title("Feature Contributions to Prediction")
     plt.tight_layout()
     return explanation_text, plt
+
 
 
 # Main Streamlit app
