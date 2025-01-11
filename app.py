@@ -85,7 +85,7 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
-def explain_prediction_with_lime(input_data, prediction_label):
+ddef explain_prediction_with_lime(input_data, prediction_label):
     # Provide a proxy dataset (representative data for perturbations)
     proxy_data = pd.DataFrame({
         "Credit_History": [1, 0, 1, 0],
@@ -124,10 +124,26 @@ def explain_prediction_with_lime(input_data, prediction_label):
         labels=[class_index]  # Specify the predicted class index
     )
 
-    # Plot the explanation for the predicted class
-    fig = explanation.as_pyplot_figure(label=class_index)
+    # Extract feature contributions for the predicted class
+    contributions = explanation.local_exp[class_index]
+
+    # Sort contributions by importance
+    contributions.sort(key=lambda x: abs(x[1]), reverse=True)
+
+    # Prepare data for plotting
+    sorted_features = [feature_names[i] for i, _ in contributions]
+    sorted_values = [val for _, val in contributions]
+
+    # Create a bar plot
+    plt.figure(figsize=(8, 5))
+    colors = ['green' if val > 0 else 'red' for val in sorted_values]
+    plt.barh(sorted_features, sorted_values, color=colors)
+    plt.xlabel("Feature Contribution to Prediction")
+    plt.ylabel("Features")
+    plt.title(f"Local Explanation for Class {prediction_label}")
     plt.tight_layout()
-    return fig
+
+    return plt.gcf()
 
 
 # Main Streamlit app
