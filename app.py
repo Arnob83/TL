@@ -149,8 +149,6 @@ def explain_prediction_with_lime(input_data, prediction_label):
 
 
 
-
-# Main Streamlit app
 def main():
     # Initialize database
     init_db()
@@ -219,10 +217,9 @@ def main():
             st.error(f'Your loan is {result}', icon="❌")
 
         # Explain the prediction with LIME
-st.header("Explanation of Prediction")
-lime_fig = explain_prediction_with_lime(input_data, prediction_label=result)
-st.pyplot(lime_fig)
-
+        st.header("Explanation of Prediction")
+        lime_fig = explain_prediction_with_lime(input_data, prediction_label=result)
+        st.pyplot(lime_fig)
 
     # Download database button
     if st.button("Download Database"):
@@ -236,6 +233,3 @@ st.pyplot(lime_fig)
                 )
         else:
             st.error("Database file not found.")
-
-if __name__ == '__main__':
-    main()
