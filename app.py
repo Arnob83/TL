@@ -97,25 +97,34 @@ def show_feature_importance(input_data_filtered, classifier):
         'Feature': input_data_filtered.columns,
         'Contribution': feature_contributions
     }).sort_values(by="Contribution", ascending=False)
-    
-    # Plot feature contributions
+
+    # Add interpretability by calculating the absolute contributions
+    feature_df['Absolute_Contribution'] = feature_df['Contribution'].abs()
+
+    # Highlight positive and negative contributions
+    feature_df['Impact'] = feature_df['Contribution'].apply(
+        lambda x: 'Positive' if x >= 0 else 'Negative'
+    )
+
+    # Plot feature contributions with better interpretability
     st.subheader("Feature Contributions")
-    fig, ax = plt.subplots(figsize=(8, 5))
-    colors = ['green' if val >= 0 else 'red' for val in feature_df['Contribution']]
-    ax.barh(feature_df['Feature'], feature_df['Contribution'], color=colors)
-    ax.set_xlabel("Contribution to Prediction")
+    fig, ax = plt.subplots(figsize=(8, 6))
+    colors = feature_df['Impact'].map({'Positive': 'green', 'Negative': 'red'})
+    ax.barh(feature_df['Feature'], feature_df['Absolute_Contribution'], color=colors)
+    ax.set_xlabel("Contribution Magnitude")
     ax.set_ylabel("Features")
-    ax.set_title("Feature Contributions to Prediction")
+    ax.set_title("Feature Contributions to Loan Decision")
+    plt.gca().invert_yaxis()  # Invert the y-axis to show the highest contributions at the top
     st.pyplot(fig)
-    
-    # Add explanations for the features
+
+    # Add explanations for each feature
     st.subheader("Feature Contribution Explanations")
-    for index, row in feature_df.iterrows():
-        if row['Contribution'] >= 0:
-            explanation = f"The feature '{row['Feature']}' positively influenced the loan approval."
+    for _, row in feature_df.iterrows():
+        if row['Impact'] == 'Positive':
+            explanation = f"The feature '{row['Feature']}' positively contributed to loan approval."
         else:
-            explanation = f"The feature '{row['Feature']}' negatively influenced the loan approval."
-        st.write(f"- {explanation}")
+            explanation = f"The feature '{row['Feature']}' negatively impacted the loan approval."
+        st.write(f"- {explanation} (Magnitude: {row['Absolute_Contribution']:.4f})")
 
 # Main Streamlit app
 def main():
