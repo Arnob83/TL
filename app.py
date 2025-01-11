@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 import os
+from pygam import LogisticGAM, s
 
 # URLs for the model file in your GitHub repository
 model_url = "https://raw.githubusercontent.com/Arnob83/TL/main/Logistic_Regression_model.pkl"
@@ -62,60 +63,41 @@ def save_to_database(gender, married, dependents, self_employed, loan_amount, pr
 
 # Prediction function
 @st.cache_data
-def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term):
-    # Map user inputs to numeric values (if necessary)
-    Education_1 = 0 if Education_1 == "Graduate" else 1
-    Credit_History = 0 if Credit_History == "Unclear Debts" else 1
-
-    # Create input data (all user inputs)
-    input_data = pd.DataFrame(
-        [[Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term]],
-        columns=["Credit_History", "Education_1", "ApplicantIncome", "CoapplicantIncome", "Loan_Amount_Term"]
-    )
-
-    # Filter to only include features used by the model
-    trained_features = classifier.feature_names_in_  # Features used in model training
-    input_data_filtered = input_data[trained_features]
-
-    # Model prediction (0 = Rejected, 1 = Approved)
-    prediction = classifier.predict(input_data_filtered)
-    probabilities = classifier.predict_proba(input_data_filtered)  # Get prediction probabilities
-    
+def prediction(gam_model, input_data):
+    probabilities = gam_model.predict_proba(input_data)
+    prediction = gam_model.predict(input_data)
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
-    return pred_label, input_data, probabilities, input_data_filtered
+    return pred_label, probabilities
 
-# Function to create and display the feature importance graph
-def show_feature_importance(input_data_filtered, classifier):
-    # Get the coefficients from the model
-    coefficients = classifier.coef_[0]
-    
-    # Calculate contributions of each feature
-    feature_contributions = coefficients * input_data_filtered.iloc[0]
-    
+# Function to create and display the GAM feature importance graph
+def show_gam_feature_importance(gam_model, input_data, feature_names):
+    st.subheader("Feature Contributions")
+
+    # Partial dependence for each feature
+    contributions = []
+    for i in range(len(feature_names)):
+        partial_dependence = gam_model.partial_dependence(i, input_data)
+        contributions.append(partial_dependence[0])
+
     # Create a DataFrame for visualization
     feature_df = pd.DataFrame({
-        'Feature': input_data_filtered.columns,
-        'Contribution': feature_contributions
+        'Feature': feature_names,
+        'Contribution': contributions
     }).sort_values(by="Contribution", ascending=False)
-
-    # Normalize the contributions to make smaller ones visible
-    max_abs_contribution = feature_df['Contribution'].abs().max()
-    feature_df['Normalized_Contribution'] = feature_df['Contribution'] / max_abs_contribution
 
     # Highlight positive and negative contributions
     feature_df['Impact'] = feature_df['Contribution'].apply(
         lambda x: 'Positive' if x >= 0 else 'Negative'
     )
 
-    # Plot feature contributions with better interpretability
-    st.subheader("Feature Contributions")
+    # Plot feature contributions
     fig, ax = plt.subplots(figsize=(8, 6))
     colors = feature_df['Impact'].map({'Positive': 'green', 'Negative': 'red'})
-    ax.barh(feature_df['Feature'], feature_df['Normalized_Contribution'], color=colors)
-    ax.set_xlabel("Normalized Contribution Magnitude")
+    ax.barh(feature_df['Feature'], feature_df['Contribution'], color=colors)
+    ax.set_xlabel("Contribution Magnitude")
     ax.set_ylabel("Features")
-    ax.set_title("Feature Contributions to Loan Decision")
-    plt.gca().invert_yaxis()  # Invert the y-axis to show the highest contributions at the top
+    ax.set_title("Feature Contributions to Loan Decision (GAM)")
+    plt.gca().invert_yaxis()
     st.pyplot(fig)
 
     # Add explanations for each feature
@@ -125,12 +107,18 @@ def show_feature_importance(input_data_filtered, classifier):
             explanation = f"The feature '{row['Feature']}' positively contributed to loan approval."
         else:
             explanation = f"The feature '{row['Feature']}' negatively impacted the loan approval."
-        st.write(f"- {explanation} (Normalized Magnitude: {row['Normalized_Contribution']:.4f})")
+        st.write(f"- {explanation} (Contribution: {row['Contribution']:.4f})")
 
 # Main Streamlit app
 def main():
     # Initialize database
     init_db()
+
+    # Train a GAM model (for demonstration, use LogisticGAM with dummy smoothing terms)
+    gam_model = LogisticGAM(s(0) + s(1) + s(2) + s(3) + s(4))
+
+    # Feature names (replace these with the actual feature names from your dataset)
+    feature_names = ["Credit_History", "Education_1", "ApplicantIncome", "CoapplicantIncome", "Loan_Amount_Term"]
 
     # App layout
     st.markdown(
@@ -174,15 +162,15 @@ def main():
     CoapplicantIncome = st.number_input("Co-applicant's yearly Income", min_value=0.0)
     Loan_Amount_Term = st.number_input("Loan Term (in months)", min_value=0.0)
 
+    # Prepare input data for prediction
+    input_data = pd.DataFrame(
+        [[Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term]],
+        columns=feature_names
+    )
+
     # Prediction and database saving
     if st.button("Predict"):
-        result, input_data, probabilities, input_data_filtered = prediction(
-            Credit_History,
-            Education_1,
-            ApplicantIncome,
-            CoapplicantIncome,
-            Loan_Amount_Term
-        )
+        result, probabilities = prediction(gam_model, input_data)
 
         # Save data to database
         save_to_database(Gender, Married, Dependents, Self_Employed, Loan_Amount, Property_Area, 
@@ -200,7 +188,7 @@ def main():
         st.write(input_data)
 
         # Show feature importance graph and explanations
-        show_feature_importance(input_data_filtered, classifier)
+        show_gam_feature_importance(gam_model, input_data, feature_names)
 
     # Download database button
     if st.button("Download Database"):
