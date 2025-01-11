@@ -6,6 +6,7 @@ import pandas as pd
 import requests
 import os
 import shap  # For SHAP explanations
+from lime.lime_tabular import LimeTabularExplainer  # Import for LIME
 
 # URLs for the model file in your GitHub repository
 model_url = "https://raw.githubusercontent.com/Arnob83/TL/main/Logistic_Regression_model.pkl"
@@ -86,9 +87,30 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data, probabilities, input_data_filtered
 
-# Function to explain the prediction using SHAP
-def show_shap_explanation(input_data_filtered, classifier):
-    st.subheader("Explanation for the Prediction")
+# Explain prediction using LIME
+def show_lime_explanation(input_data_filtered):
+    st.subheader("LIME Explanation")
+    
+    # Initialize LIME explainer
+    explainer = LimeTabularExplainer(
+        training_data=input_data_filtered.values,
+        feature_names=input_data_filtered.columns,
+        class_names=['Rejected', 'Approved'],
+        mode='classification'
+    )
+
+    # Explain a specific prediction
+    explanation = explainer.explain_instance(
+        data_row=input_data_filtered.iloc[0],
+        predict_fn=classifier.predict_proba
+    )
+    
+    # Visualize explanation
+    st.pyplot(explanation.as_pyplot_figure())
+
+# Explain prediction using SHAP
+def show_shap_explanation(input_data_filtered):
+    st.subheader("SHAP Explanation")
     
     # Initialize SHAP explainer
     explainer = shap.LinearExplainer(classifier, input_data_filtered, feature_perturbation="interventional")
@@ -99,45 +121,10 @@ def show_shap_explanation(input_data_filtered, classifier):
     shap.summary_plot(shap_values, input_data_filtered, plot_type="bar", show=False)
     st.pyplot(plt.gcf())
 
-    # Provide detailed explanation
-    st.write("Detailed Breakdown:")
-    for feature, value, shap_value in zip(input_data_filtered.columns, input_data_filtered.iloc[0], shap_values[0]):
-        impact = "positive" if shap_value > 0 else "negative"
-        st.write(f"- **{feature}**: {value} (Impact: {impact}, SHAP Value: {shap_value:.4f})")
-
 # Main Streamlit app
 def main():
     # Initialize database
     init_db()
-
-    # App layout
-    st.markdown(
-        """
-        <style>
-        .main-container {
-            background-color: #f4f6f9;
-            border: 2px solid #e6e8eb;
-            padding: 20px;
-            border-radius: 10px;
-        }
-        .header {
-            background-color: #4caf50;
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-        }
-        .header h1 {
-            color: white;
-        }
-        </style>
-        <div class="main-container">
-        <div class="header">
-        <h1>Loan Prediction ML App</h1>
-        </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
     # User inputs
     Gender = st.selectbox("Gender", ("Male", "Female"))
@@ -152,20 +139,16 @@ def main():
     CoapplicantIncome = st.number_input("Co-applicant's yearly Income", min_value=0.0)
     Loan_Amount_Term = st.number_input("Loan Term (in months)", min_value=0.0)
 
-    # Prediction and database saving
     if st.button("Predict"):
         result, input_data, probabilities, input_data_filtered = prediction(
-            Credit_History,
-            Education_1,
-            ApplicantIncome,
-            CoapplicantIncome,
-            Loan_Amount_Term
+            Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term
         )
-
+        
         # Save data to database
-        save_to_database(Gender, Married, Dependents, Self_Employed, Loan_Amount, Property_Area, 
-                         Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
-                         Loan_Amount_Term, result)
+        save_to_database(
+            Gender, Married, Dependents, Self_Employed, Loan_Amount, Property_Area, 
+            Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, Loan_Amount_Term, result
+        )
 
         # Display the prediction
         if result == "Approved":
@@ -173,25 +156,11 @@ def main():
         else:
             st.error(f"Your loan is Rejected! (Probability: {probabilities[0][0]:.2f})", icon="❌")
 
-        # Show prediction values
-        st.subheader("Prediction Details")
         st.write(input_data)
 
-        # Explain the prediction using SHAP
-        show_shap_explanation(input_data_filtered, classifier)
+        # Show explanations
+        show_shap_explanation(input_data_filtered)
+        show_lime_explanation(input_data_filtered)
 
-    # Download database button
-    if st.button("Download Database"):
-        if os.path.exists("loan_data.db"):
-            with open("loan_data.db", "rb") as f:
-                st.download_button(
-                    label="Download SQLite Database",
-                    data=f,
-                    file_name="loan_data.db",
-                    mime="application/octet-stream"
-                )
-        else:
-            st.error("Database file not found.")
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
