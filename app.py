@@ -82,6 +82,9 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     prediction = classifier.predict(input_data_filtered)
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
+
+
+
 def explain_prediction(input_data, final_result):
     # Use SHAP KernelExplainer for logistic regression
     explainer = shap.KernelExplainer(classifier.predict_proba, input_data)
@@ -89,8 +92,8 @@ def explain_prediction(input_data, final_result):
     # Calculate SHAP values for the input data
     shap_values = explainer.shap_values(input_data)
 
-    # Extract SHAP values for the positive class (index 1)
-    shap_values_for_input = shap_values[1][0]  # First sample for the positive class
+    # Use the SHAP values for the only available class (binary classification)
+    shap_values_for_input = shap_values[0][0]  # First class and first sample
 
     # Ensure feature names match the SHAP values
     feature_names = input_data.columns.tolist()
@@ -119,6 +122,7 @@ def explain_prediction(input_data, final_result):
     plt.title("Feature Contributions to Prediction")
     plt.tight_layout()
     return explanation_text, plt
+
 
 
 
