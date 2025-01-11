@@ -84,23 +84,28 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     return pred_label, input_data_filtered
 
 def explain_prediction(input_data, final_result):
-    # Ensure input data matches trained features
-    trained_features = classifier.feature_names_in_  # Features used in training
+    # Extract features used during model training
+    if hasattr(classifier, "feature_names_in_"):
+        trained_features = classifier.feature_names_in_
+    else:
+        raise ValueError("The model does not provide 'feature_names_in_'. Ensure it was trained with scikit-learn.")
+
+    # Align input data with trained features
     input_data = input_data[trained_features]
 
-    # Use SHAP KernelExplainer
+    # Initialize SHAP KernelExplainer
     explainer = shap.KernelExplainer(classifier.predict_proba, input_data)
 
     # Calculate SHAP values for the input data
     shap_values = explainer.shap_values(input_data)
 
-    # Extract SHAP values for the only available class (binary classification)
-    shap_values_for_input = shap_values[0][0]  # SHAP values for the first class and sample
+    # Extract SHAP values for the positive class (binary classification)
+    shap_values_for_input = shap_values[0][0]  # First class and first sample
 
-    # Ensure feature names match the SHAP values
+    # Ensure feature names match SHAP values
     feature_names = input_data.columns.tolist()
     if len(feature_names) != len(shap_values_for_input):
-        raise ValueError("Number of feature names and SHAP values do not match.")
+        raise ValueError(f"Number of feature names ({len(feature_names)}) and SHAP values ({len(shap_values_for_input)}) do not match.")
 
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
     for feature, shap_value in zip(feature_names, shap_values_for_input):
