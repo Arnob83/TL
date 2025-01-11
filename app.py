@@ -85,7 +85,6 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
-# Explanation function using LIME
 def explain_prediction_with_lime(input_data, prediction_label):
     # Provide a proxy dataset (representative data for perturbations)
     proxy_data = pd.DataFrame({
@@ -112,10 +111,16 @@ def explain_prediction_with_lime(input_data, prediction_label):
     # Determine the index for the predicted class
     class_index = 1 if prediction_label == "Approved" else 0
 
+    # Custom predict function to ensure input has valid feature names
+    def predict_fn(x):
+        # Convert x (numpy array) to DataFrame with correct feature names
+        x_df = pd.DataFrame(x, columns=feature_names)
+        return classifier.predict_proba(x_df)
+
     # Generate explanation for the prediction
     explanation = explainer.explain_instance(
         data_row=input_array[0],  # Use the first row of the input data
-        predict_fn=classifier.predict_proba,
+        predict_fn=predict_fn,
         labels=[class_index]  # Specify the predicted class index
     )
 
@@ -123,6 +128,7 @@ def explain_prediction_with_lime(input_data, prediction_label):
     fig = explanation.as_pyplot_figure(label=class_index)
     plt.tight_layout()
     return fig
+
 
 # Main Streamlit app
 def main():
