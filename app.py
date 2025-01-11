@@ -14,12 +14,22 @@ url = "https://raw.githubusercontent.com/Arnob83/TL/main/Logistic_Regression_mod
 
 # Download the Logistic Regression model file and save it locally
 response = requests.get(url)
-with open("Logistic_Regression_model.pkl", "wb") as file:
-    file.write(response.content)
+if response.status_code == 200:
+    with open("Logistic_Regression_model.pkl", "wb") as file:
+        file.write(response.content)
+else:
+    raise Exception("Failed to download the model. Please check the URL.")
+
+# Validate file size
+if os.path.getsize("Logistic_Regression_model.pkl") == 0:
+    raise EOFError("The downloaded file is empty. Please verify the source.")
 
 # Load the trained model
-with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
-    classifier = pickle.load(pickle_in)
+try:
+    with open("Logistic_Regression_model.pkl", "rb") as pickle_in:
+        classifier = pickle.load(pickle_in)
+except EOFError:
+    raise EOFError("Failed to load the model. The file may be incomplete or corrupted.")
 
 # Initialize SQLite database
 def init_db():
