@@ -99,8 +99,11 @@ def explain_prediction(input_data, final_result):
     # Calculate SHAP values for the input data
     shap_values = explainer.shap_values(input_data)
 
-    # Select SHAP values for the positive class (index 1)
-    shap_values_for_input = shap_values[1][0]  # SHAP values for the positive class and first sample
+    # Extract SHAP values for the single output
+    if isinstance(shap_values, list):
+        shap_values_for_input = shap_values[0][0]  # Use first element for single output models
+    else:
+        shap_values_for_input = shap_values[0]  # Directly use the SHAP values
 
     # Ensure feature names match SHAP values
     feature_names = input_data.columns.tolist()
@@ -129,6 +132,7 @@ def explain_prediction(input_data, final_result):
     plt.title("Feature Contributions to Prediction")
     plt.tight_layout()
     return explanation_text, plt
+
 
 
 
