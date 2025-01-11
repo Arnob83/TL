@@ -86,7 +86,7 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     return pred_label, input_data_filtered
 
 def explain_prediction_with_lime(input_data, prediction_label):
-    # Provide a proxy dataset (representative data for perturbations)
+    # Define a proxy dataset (representative data for perturbations)
     proxy_data = pd.DataFrame({
         "Credit_History": [1, 0, 1, 0],
         "Education_1": [0, 1, 0, 1],
@@ -95,11 +95,13 @@ def explain_prediction_with_lime(input_data, prediction_label):
         "Loan_Amount_Term": [360, 180, 120, 240]
     })
 
+    # Ensure input data features are in the correct order
     feature_names = classifier.feature_names_in_
+    input_data = input_data[feature_names]
 
     # Initialize LIME explainer with proxy data
     explainer = lime.lime_tabular.LimeTabularExplainer(
-        training_data=proxy_data.values,
+        training_data=proxy_data[feature_names].values,
         feature_names=feature_names,
         class_names=['Rejected', 'Approved'],
         mode='classification'
@@ -111,7 +113,7 @@ def explain_prediction_with_lime(input_data, prediction_label):
     # Determine the index for the predicted class
     class_index = 1 if prediction_label == "Approved" else 0
 
-    # Custom predict function to ensure input has valid feature names
+    # Define a predict function to ensure input has valid feature names
     def predict_fn(x):
         # Convert x (numpy array) to DataFrame with correct feature names
         x_df = pd.DataFrame(x, columns=feature_names)
@@ -144,6 +146,7 @@ def explain_prediction_with_lime(input_data, prediction_label):
     plt.tight_layout()
 
     return plt.gcf()
+
 
 
 
@@ -216,9 +219,10 @@ def main():
             st.error(f'Your loan is {result}', icon="❌")
 
         # Explain the prediction with LIME
-        st.header("Explanation of Prediction")
-        lime_fig = explain_prediction_with_lime(input_data, prediction_label=result)
-        st.pyplot(lime_fig)
+st.header("Explanation of Prediction")
+lime_fig = explain_prediction_with_lime(input_data, prediction_label=result)
+st.pyplot(lime_fig)
+
 
     # Download database button
     if st.button("Download Database"):
