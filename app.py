@@ -90,9 +90,11 @@ def explain_prediction(input_data, final_result):
     # Calculate SHAP values for the input data
     shap_values = explainer.shap_values(input_data)
 
-    feature_names = input_data.columns
-    shap_values_for_input = shap_values[1][0]  # Use the values for the "approved" class (index 1)
+    # For binary classification, shap_values is a list of two arrays (one for each class)
+    # Use the SHAP values for the positive class (index 0 in binary logistic regression)
+    shap_values_for_input = shap_values[0][0]  # First class and first sample
 
+    feature_names = input_data.columns
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
     for feature, shap_value in zip(feature_names, shap_values_for_input):
         explanation_text += (
