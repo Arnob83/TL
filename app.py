@@ -100,8 +100,15 @@ def explain_prediction(input_data, final_result):
     # Calculate SHAP values for the input data
     shap_values = explainer.shap_values(input_data)
 
-    # Select SHAP values for the positive class (index 1 for binary classification)
-    shap_values_for_input = shap_values[1][0]  # SHAP values for the first sample, positive class
+    # Check SHAP values structure and handle single output case
+    if isinstance(shap_values, list) and len(shap_values) > 1:
+        # Select SHAP values for the positive class (index 1 for binary classification)
+        shap_values_for_input = shap_values[1][0]  # SHAP values for the first sample, positive class
+    elif isinstance(shap_values, list) and len(shap_values) == 1:
+        # Only one set of SHAP values is present, use shap_values[0]
+        shap_values_for_input = shap_values[0][0]
+    else:
+        raise ValueError("Unexpected SHAP values format. Check the SHAP explainer output.")
 
     # Ensure feature names match SHAP values
     feature_names = input_data.columns.tolist()
