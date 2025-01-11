@@ -85,6 +85,7 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data_filtered
 
+# Explanation function using LIME
 def explain_prediction_with_lime(input_data, prediction_label):
     # Provide a proxy dataset (representative data for perturbations)
     proxy_data = pd.DataFrame({
@@ -122,7 +123,6 @@ def explain_prediction_with_lime(input_data, prediction_label):
     fig = explanation.as_pyplot_figure(label=class_index)
     plt.tight_layout()
     return fig
-
 
 # Main Streamlit app
 def main():
@@ -194,7 +194,7 @@ def main():
 
         # Explain the prediction with LIME
         st.header("Explanation of Prediction")
-        lime_fig = explain_prediction_with_lime(input_data)
+        lime_fig = explain_prediction_with_lime(input_data, prediction_label=result)
         st.pyplot(lime_fig)
 
     # Download database button
