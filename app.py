@@ -99,9 +99,9 @@ def explain_prediction(input_data, final_result):
     # Calculate SHAP values for the input data
     shap_values = explainer.shap_values(input_data)
 
-    # Ensure SHAP values are processed correctly
-    if isinstance(shap_values, list):  # Handle case where SHAP returns a list of arrays
-        shap_values_for_input = shap_values[0][0]  # SHAP values for the first sample
+    # Extract SHAP values for the single output
+    if isinstance(shap_values, list):
+        shap_values_for_input = shap_values[0][0]  # Use first element for single output models
     else:
         shap_values_for_input = shap_values[0]  # Directly use the SHAP values
 
@@ -112,8 +112,14 @@ def explain_prediction(input_data, final_result):
 
     explanation_text = f"**Why your loan is {final_result}:**\n\n"
     for feature, shap_value in zip(feature_names, shap_values_for_input):
-        # Convert SHAP values to scalars if needed
-        shap_value_scalar = shap_value.item() if hasattr(shap_value, "item") else shap_value
+        # Ensure SHAP values are scalars
+        if isinstance(shap_value, (list, np.ndarray)) and len(shap_value) == 1:
+            shap_value_scalar = shap_value[0]  # Extract the single value
+        elif np.isscalar(shap_value):
+            shap_value_scalar = shap_value
+        else:
+            raise ValueError(f"Unexpected SHAP value format: {shap_value}")
+
         explanation_text += (
             f"- **{feature}**: {'Positive' if shap_value_scalar > 0 else 'Negative'} contribution with a SHAP value of {shap_value_scalar:.2f}\n"
         )
@@ -135,6 +141,8 @@ def explain_prediction(input_data, final_result):
     plt.title("Feature Contributions to Prediction")
     plt.tight_layout()
     return explanation_text, plt
+
+
 
 
 
