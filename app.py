@@ -84,19 +84,38 @@ def prediction(Credit_History, Education_1, ApplicantIncome, CoapplicantIncome, 
     pred_label = 'Approved' if prediction[0] == 1 else 'Rejected'
     return pred_label, input_data, probabilities, input_data_filtered
 
-# Function to create feature importance plot
-def plot_feature_importance(features, coefficients):
-    # Create a horizontal bar chart for feature importance
-    plt.figure(figsize=(8, 5))
-    colors = ["green" if coef > 0 else "red" for coef in coefficients]
-    bars = plt.barh(features, coefficients, color=colors)
-    for bar, coef in zip(bars, coefficients):
-        plt.text(bar.get_width(), bar.get_y() + bar.get_height() / 2, f"{coef:.4f}", va='center')
-    plt.xlabel("Coefficient (Impact on Prediction)")
-    plt.ylabel("Features")
-    plt.title("Feature Importance")
-    plt.tight_layout()
-    return plt
+# Function to create and display the feature importance graph
+def show_feature_importance(input_data_filtered, classifier):
+    # Get the coefficients from the model
+    coefficients = classifier.coef_[0]
+    
+    # Calculate contributions of each feature
+    feature_contributions = coefficients * input_data_filtered.iloc[0]
+    
+    # Create a DataFrame for visualization
+    feature_df = pd.DataFrame({
+        'Feature': input_data_filtered.columns,
+        'Contribution': feature_contributions
+    }).sort_values(by="Contribution", ascending=False)
+    
+    # Plot feature contributions
+    st.subheader("Feature Contributions")
+    fig, ax = plt.subplots(figsize=(8, 5))
+    colors = ['green' if val >= 0 else 'red' for val in feature_df['Contribution']]
+    ax.barh(feature_df['Feature'], feature_df['Contribution'], color=colors)
+    ax.set_xlabel("Contribution to Prediction")
+    ax.set_ylabel("Features")
+    ax.set_title("Feature Contributions to Prediction")
+    st.pyplot(fig)
+    
+    # Add explanations for the features
+    st.subheader("Feature Contribution Explanations")
+    for index, row in feature_df.iterrows():
+        if row['Contribution'] >= 0:
+            explanation = f"The feature '{row['Feature']}' positively influenced the loan approval."
+        else:
+            explanation = f"The feature '{row['Feature']}' negatively influenced the loan approval."
+        st.write(f"- {explanation}")
 
 # Main Streamlit app
 def main():
@@ -170,34 +189,8 @@ def main():
         st.subheader("Prediction Value")
         st.write(input_data)
 
-        # Calculate feature contributions
-        coefficients = classifier.coef_[0]
-        feature_contributions = coefficients * input_data_filtered.iloc[0]
-
-        # Create a DataFrame for visualization
-        feature_df = pd.DataFrame({
-            'Feature': input_data_filtered.columns,
-            'Contribution': feature_contributions
-        }).sort_values(by="Contribution", ascending=False)
-
-        # Plot feature contributions
-        st.subheader("Feature Contributions")
-        fig, ax = plt.subplots(figsize=(8, 5))
-        colors = ['green' if val >= 0 else 'red' for val in feature_df['Contribution']]
-        ax.barh(feature_df['Feature'], feature_df['Contribution'], color=colors)
-        ax.set_xlabel("Contribution to Prediction")
-        ax.set_ylabel("Features")
-        ax.set_title("Feature Contributions to Prediction")
-        st.pyplot(fig)
-
-        # Add explanations for the features
-        st.subheader("Feature Contribution Explanations")
-        for index, row in feature_df.iterrows():
-            if row['Contribution'] >= 0:
-                explanation = f"The feature '{row['Feature']}' positively influenced the loan approval."
-            else:
-                explanation = f"The feature '{row['Feature']}' negatively influenced the loan approval."
-            st.write(f"- {explanation}")
+        # Show feature importance graph and explanations
+        show_feature_importance(input_data_filtered, classifier)
 
     # Download database button
     if st.button("Download Database"):
